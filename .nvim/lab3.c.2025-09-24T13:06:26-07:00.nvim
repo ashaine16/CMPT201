@@ -1,0 +1,102 @@
+// lab4.c — keep the last 5 lines of input; "print" shows the history (including itself).
+// Build: gcc -std=c11 -Wall -Wextra -O2 lab3.c -o lab3
+#define _POSIX_C_SOURCE 200809L
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+enum { HISTORY_SIZE = 5 };
+
+typedef struct {
+    char *items[HISTORY_SIZE]; // circular buffer storage
+    int start;                 // index of the oldest element
+    int count;                 // number of stored elements (0..HISTORY_SIZE)
+} History;
+
+// Safe strdup for C11 portability
+static char *sdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = malloc(n);
+    if (!p) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    memcpy(p, s, n);
+    return p;
+}
+
+static void history_init(History *h) {
+    h->start = 0;
+    h->count = 0;
+    for (int i = 0; i < HISTORY_SIZE; i++) h->items[i] = NULL;
+}
+
+static void history_free(History *h) {
+    for (int i = 0; i < h->count; i++) {
+        int idx = (h->start + i) % HISTORY_SIZE;
+        free(h->items[idx]);
+        h->items[idx] = NULL;
+    }
+    h->start = h->count = 0;
+}
+
+// Push a new line into the circular buffer
+static void history_push(History *h, const char *line) {
+    char *copy = sdup(line);
+    if (h->count < HISTORY_SIZE) {
+        int idx = (h->start + h->count) % HISTORY_SIZE;
+        h->items[idx] = copy;
+        h->count++;
+    } else {
+        // overwrite the oldest
+        free(h->items[h->start]);
+        h->items[h->start] = copy;
+        h->start = (h->start + 1) % HISTORY_SIZE;
+    }
+}
+
+static void history_print(const History *h) {
+    for (int i = 0; i < h->count; i++) {
+        int idx = (h->start + i) % HISTORY_SIZE;
+        printf("%s\n", h->items[idx]);
+    }
+}
+
+int main(void) {
+    History hist;
+    history_init(&hist);
+
+    char *line = NULL;   // getline buffer (malloc'd/reused by getline)
+    size_t cap = 0;      // current capacity for getline
+    ssize_t nread;
+
+    for (;;) {
+        printf("Enter input: ");
+        fflush(stdout);
+
+        nread = getline(&line, &cap, stdin);
+        if (nread == -1) {    // EOF (Ctrl+D) or error
+            putchar('\n');
+            break;
+        }
+
+        // Strip trailing newline (if present)
+        if (nread > 0 && line[nread - 1] == '\n') {
+            line[nread - 1] = '\0';
+        }
+
+        // Always store the input (including empty lines and "print")
+        history_push(&hist, line);
+
+        // If exactly "print", show the last up to 5 lines (including this "print")
+        if (strcmp(line, "print") == 0) {
+            history_print(&hist);
+        }
+    }
+
+    free(line);
+    history_free(&hist);
+    return 0;
+}
+

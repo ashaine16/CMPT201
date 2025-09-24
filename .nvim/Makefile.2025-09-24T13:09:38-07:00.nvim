@@ -1,0 +1,17 @@
+# Build + quick test for lab3.c
+CC = gcc
+CFLAGS = -std=c11 -Wall -Wextra -O2
+
+all: lab3
+
+lab3: lab3.c
+	$(CC) $(CFLAGS) $< -o $@
+
+run: lab3
+	./lab3
+
+test: lab3
+	@printf "Hello world!\nyes\nprint\nAnd this is\nJust another input\nline\nhere\nprint\n\nthat was blank!\nsee it!\nprint\n" | ./lab3
+
+clean:
+	rm -f lab3
